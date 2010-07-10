@@ -29,7 +29,8 @@ class Optimize extends \lithium\template\Helper {
         }
         
         // Set the output path
-        $output = LITHIUM_APP_PATH . DIRECTORY_SEPARATOR . 'webroot' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . $library['config']['js']['output_directory'];
+        $webroot = Media::webroot(true);
+        $output = $webroot . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . $library['config']['js']['output_directory'];
             
         // If the output directory doesn't exist, return the scripts like normal... TODO: also ensure permissions to write here?
         if(!file_exists($output)) {
@@ -53,26 +54,22 @@ class Optimize extends \lithium\template\Helper {
                 // JSMin
                 if(($library['config']['js']['compression'] === true) || ($library['config']['js']['compression'] == 'jsmin')) {
                     foreach($this->_context->scripts as $file) {
-                        if(preg_match('/src="(.*)"/', $file, $matches)) {
-                            $script = explode('/', $matches[1]);
-                            unset($script[1]); // ditch the app folder name
-                            $script = DIRECTORY_SEPARATOR . 'webroot' . implode('/', $script);
+                        if(preg_match('/js\/(.*)"/', $file, $matches)) {
+                            $script = $webroot . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . $matches[1]; // Media::asset($matches[1], 'js'); <-- will not work right now for all file names. if it has a period in it, it'll chop off to that period. so script.crazy.js will become script.js ... fix to come
                             // It is possible that a reference to a file that does not exist was passed
-                            if(file_exists(LITHIUM_APP_PATH . $script)) {
-                                $js .= \li3_assets\jsminphp\JSMin::minify(file_get_contents(LITHIUM_APP_PATH . $script));
+                            if(file_exists($script)) {
+                                $js .= \li3_assets\jsminphp\JSMin::minify(file_get_contents($script));
                             }
                         }
                     }
                 // Dean Edwards Packer
                 } elseif($library['config']['js']['compression'] == 'packer') {
                     foreach($this->_context->scripts as $file) {
-                        if(preg_match('/src="(.*)"/', $file, $matches)) {
-                            $script = explode('/', $matches[1]);
-                            unset($script[1]); // ditch the app folder name
-                            $script = DIRECTORY_SEPARATOR . 'webroot' . implode('/', $script);
-                            // It is possible that a reference to a file that does not exist was passed
-                            if(file_exists(LITHIUM_APP_PATH . $script)) {
-                                $script_contents = file_get_contents(LITHIUM_APP_PATH . $script);
+                        if(preg_match('/\/js\/(.*)"/', $file, $matches)) {
+                            $script = $webroot . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . $matches[1];
+                            // It is possible that a reference to a file that does not exist was passed                            
+                            if(file_exists($script)) {
+                                $script_contents = file_get_contents($script);
                                 $packer = new \li3_assets\packer\JavaScriptPacker($script_contents, $library['config']['js']['packer_encoding'], $script, $library['config']['js']['packer_fast_decode'], $script, $library['config']['js']['packer_special_chars']);
                                 $js .= $packer->pack();
                             }
@@ -81,7 +78,12 @@ class Optimize extends \lithium\template\Helper {
                 }
                 file_put_contents($output_file, $js);
             }
-            return '<script type="text/javascript" src="' . $this->_context->url() . 'webroot' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . $library['config']['js']['output_directory'] . DIRECTORY_SEPARATOR . $file_name_hash . '.js"></script>';
+            // One last safety check to ensure the file is there (reasons why it may not be: primarily, write permissions)
+            if(file_exists($output_file)) {
+                return '<script type="text/javascript" src="' . Media::asset($library['config']['js']['output_directory'] . DIRECTORY_SEPARATOR . $file_name_hash . '.js', 'js') . '"></script>';
+            } else {
+                return $this->_context_scripts();
+            }
         } else {
             return $this->_context->scripts();
         }
@@ -111,7 +113,8 @@ class Optimize extends \lithium\template\Helper {
         }
         
         // Set the output path
-        $output = LITHIUM_APP_PATH . DIRECTORY_SEPARATOR . 'webroot' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . $library['config']['css']['output_directory'];
+        $webroot = Media::webroot(true);
+        $output = $webroot . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . $library['config']['css']['output_directory'];
             
         // If the output directory doesn't exist, return the scripts like normal...
         if(!file_exists($output)) {
@@ -130,15 +133,13 @@ class Optimize extends \lithium\template\Helper {
         $output_file = $output . DIRECTORY_SEPARATOR . $file_name_hash . '.css';
         
         // Run any referenced .less files through lessphp first
-        foreach($this->_context->styles as $file) {
-            if(preg_match('/href="(.*).less.css"/', $file, $matches)) {
-                $sheet = explode('/', $matches[1]);
-                unset($sheet[1]); // ditch the app folder name
-                $sheet = DIRECTORY_SEPARATOR . 'webroot' . implode('/', $sheet);
+        foreach($this->_context->styles as $file) {                        
+            if(preg_match('/\/css\/(.*).less.css"/', $file, $matches)) {
+                $sheet = $webroot . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . $matches[1] . '.less'; // Media::asset($matches[1], 'css'); <-- will not work right now for all file names. if it has a period in it, it'll chop off to that period. so sheet.crazy.css will become sheet.css ... fix to come
                 try {
                     $less = new \li3_assets\lessphp\lessc();
-                    // fortunately, the Html::script() helper will automatically append .css, so the output file can just have .css appended too and match.
-                    $less::ccompile(LITHIUM_APP_PATH . $sheet . '.less',  LITHIUM_APP_PATH . $sheet . '.less.css');
+                    // fortunately, the Html::script() helper will automatically append .css, so the output file can just have .css appended too and match.                    
+                    $less::ccompile($sheet, $sheet . '.css');
                 } catch (\exception $ex) {
                     if($library['config']['css']['less_debug'] === true) {
                         $fp = fopen($output . DIRECTORY_SEPARATOR .'less_errors', 'a');
@@ -156,13 +157,11 @@ class Optimize extends \lithium\template\Helper {
                 // true is just basic compression and combination. Basically remove white spaces and line breaks where possible.
                 if($library['config']['css']['compression'] === true) {
                     foreach($this->_context->styles as $file) {
-                        if(preg_match('/href="(.*)"/', $file, $matches)) {
-                            $sheet = explode('/', $matches[1]);
-                            unset($sheet[1]); // ditch the app folder name
-                            $sheet = DIRECTORY_SEPARATOR . 'webroot' . implode('/', $sheet);
+                        if(preg_match('/\/css\/(.*)"/', $file, $matches)) {
+                            $sheet = $webroot . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . $matches[1];
                             // It is possible that a reference to a file that does not exist was passed
-                            if(file_exists(LITHIUM_APP_PATH . $sheet)) {
-                                $contents = file_get_contents(LITHIUM_APP_PATH . $sheet);
+                            if(file_exists($sheet)) {
+                                $contents = file_get_contents($sheet);
                             } else {
                                 $contents = '';
                             }
@@ -183,13 +182,11 @@ class Optimize extends \lithium\template\Helper {
                     $tidy->load_template($library['config']['css']['tidy_template']);
                     // Loop through all the css files, run them through tidy, and combine into one css file
                     foreach($this->_context->styles as $file) {
-                        if(preg_match('/href="(.*)"/', $file, $matches)) {
-                            $sheet = explode('/', $matches[1]);
-                            unset($sheet[1]); // ditch the app folder name
-                            $sheet = DIRECTORY_SEPARATOR . 'webroot' . implode('/', $sheet);                            
+                        if(preg_match('/\/css\/(.*)"/', $file, $matches)) {
+                           $sheet = $webroot . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . $matches[1];
                             // It is possible that a reference to a file that does not exist was passed
-                            if(file_exists(LITHIUM_APP_PATH . $sheet)) {
-                                $tidy->parse(file_get_contents(LITHIUM_APP_PATH . $sheet));
+                            if(file_exists($sheet)) {
+                                $tidy->parse(file_get_contents($sheet));
                                 $css .= $tidy->print->plain();
                             }
                         }
@@ -198,7 +195,12 @@ class Optimize extends \lithium\template\Helper {
                 }
                 file_put_contents($output_file, $css);
             }
-            return '<link rel="stylesheet" type="text/css" href="' . $this->_context->url() . 'webroot' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . $library['config']['css']['output_directory'] . DIRECTORY_SEPARATOR . $file_name_hash . '.css" />';
+            // One last safety check to ensure the file is there (reasons why it may not be: primarily, write permissions)
+            if(file_exists($output_file)) {
+                return '<link rel="stylesheet" type="text/css" href="' . Media::asset($library['config']['css']['output_directory'] . DIRECTORY_SEPARATOR . $file_name_hash . '.css', 'css') . '" />';
+            } else {
+                return $this->_context->styles();
+            }
         } else {
             // If compression wasn't set, just return the style sheets like normal
             return $this->_context->styles();
