@@ -234,7 +234,7 @@ class Optimize extends \lithium\template\Helper {
             if(substr($params['path'], 0, 4) == 'http') {
                 $file = $params['path'];
             } else {
-                $file = LITHIUM_APP_PATH . DIRECTORY_SEPARATOR . 'webroot' . Media::asset($params['path'], 'image');
+                $file = Media::webroot(true) . Media::asset($params['path'], 'image');
             }
             $data = base64_encode(file_get_contents($file));
             
