@@ -9,7 +9,7 @@ class Optimize extends \lithium\template\Helper {
         $library = Libraries::get('li3_assets');
         // Set Defaults
         $library += array('config' => array());
-        $library['config'] += array('js' => array(), 'css' => array(), 'image' => array());
+        $library['config'] += array('js' => array());
         
         $library['config']['js'] += array(
                                         'compression' => 'jsmin',
@@ -30,32 +30,30 @@ class Optimize extends \lithium\template\Helper {
         
         // Set the output path
         $webroot = Media::webroot(true);
-        $output = $webroot . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . $library['config']['js']['output_directory'];
+        $output_hash = md5(serialize($this->_context->scripts));
+        $output_file = Media::asset($library['config']['js']['output_directory'] . DIRECTORY_SEPARATOR . $output_hash, 'js');
+        $output_folder = $webroot . strstr($output_file, $output_hash, true);
             
         // If the output directory doesn't exist, return the scripts like normal... TODO: also ensure permissions to write here?
-        if(!file_exists($output)) {
+        if(!file_exists($output_folder)) {
             // If it doesn't exist, try to create it
-            if (!mkdir($output, 0777, true)) {
+            if (!mkdir($output_folder, 0777, true)) {
                 die('Failed to create folders...');
             }
             // If it still doesn't exist, return the scripts
-            if(!file_exists($output)) {
+            if(!file_exists($output_folder)) {
                 return $this->_context->scripts();
             }
         }
         
-        // Get the output file for this request
-        $file_name_hash = md5(serialize($this->_context->scripts));
-        $output_file = $output . DIRECTORY_SEPARATOR . $file_name_hash . '.js';
-        
         if(!empty($library['config']['js']['compression'])) {
-            if(!file_exists($output_file)) {
+            if(!file_exists($webroot . $output_file)) {
                 $js = '';
                 // JSMin
                 if(($library['config']['js']['compression'] === true) || ($library['config']['js']['compression'] == 'jsmin')) {
                     foreach($this->_context->scripts as $file) {
                         if(preg_match('/js\/(.*)"/', $file, $matches)) {
-                            $script = $webroot . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . $matches[1]; // Media::asset($matches[1], 'js'); <-- will not work right now for all file names. if it has a period in it, it'll chop off to that period. so script.crazy.js will become script.js ... fix to come
+                            $script = $webroot . Media::asset($matches[1], 'js');
                             // It is possible that a reference to a file that does not exist was passed
                             if(file_exists($script)) {
                                 $js .= \li3_assets\jsminphp\JSMin::minify(file_get_contents($script));
@@ -66,7 +64,7 @@ class Optimize extends \lithium\template\Helper {
                 } elseif($library['config']['js']['compression'] == 'packer') {
                     foreach($this->_context->scripts as $file) {
                         if(preg_match('/\/js\/(.*)"/', $file, $matches)) {
-                            $script = $webroot . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . $matches[1];
+                            $script = $webroot . Media::asset($matches[1], 'js');
                             // It is possible that a reference to a file that does not exist was passed                            
                             if(file_exists($script)) {
                                 $script_contents = file_get_contents($script);
@@ -76,11 +74,11 @@ class Optimize extends \lithium\template\Helper {
                         }
                     }
                 }
-                file_put_contents($output_file, $js);
+                file_put_contents($webroot . $output_file, $js);
             }
             // One last safety check to ensure the file is there (reasons why it may not be: primarily, write permissions)
-            if(file_exists($output_file)) {
-                return '<script type="text/javascript" src="' . Media::asset($library['config']['js']['output_directory'] . DIRECTORY_SEPARATOR . $file_name_hash . '.js', 'js') . '"></script>';
+            if(file_exists($webroot . $output_file)) {
+                return '<script type="text/javascript" src="' . Media::asset($output_file, 'js') . '"></script>';
             } else {
                 return $this->_context_scripts();
             }
@@ -94,7 +92,7 @@ class Optimize extends \lithium\template\Helper {
         $library = Libraries::get('li3_assets');
         // Set Defaults
         $library += array('config' => array());
-        $library['config'] += array('js' => array(), 'css' => array(), 'image' => array());
+        $library['config'] += array('css' => array());
         
         $library['config']['css'] += array(
                                        'compression' => true, // possible values: "tidy", true, false
@@ -114,28 +112,26 @@ class Optimize extends \lithium\template\Helper {
         
         // Set the output path
         $webroot = Media::webroot(true);
-        $output = $webroot . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . $library['config']['css']['output_directory'];
+        $output_hash = md5(serialize($this->_context->styles));
+        $output_file = Media::asset($library['config']['css']['output_directory'] . DIRECTORY_SEPARATOR . $output_hash, 'css');
+        $output_folder = $webroot . strstr($output_file, $output_hash, true);
             
         // If the output directory doesn't exist, return the scripts like normal...
-        if(!file_exists($output)) {
+        if(!file_exists($output_folder)) {
             // If it doesn't exist, try to create it
-            if (!mkdir($output, 0777, true)) {
+            if (!mkdir($output_folder, 0777, true)) {
                 die('Failed to create folders...');
             }
             // If it still doesn't exist, return the scripts
-            if(!file_exists($output)) {
+            if(!file_exists($output_folder)) {
                 return $this->_context->styles();
             }
         }
         
-        // Get the output file for this request
-        $file_name_hash = md5(serialize($this->_context->styles));
-        $output_file = $output . DIRECTORY_SEPARATOR . $file_name_hash . '.css';
-        
         // Run any referenced .less files through lessphp first
-        foreach($this->_context->styles as $file) {                        
-            if(preg_match('/\/css\/(.*).less.css"/', $file, $matches)) {
-                $sheet = $webroot . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . $matches[1] . '.less'; // Media::asset($matches[1], 'css'); <-- will not work right now for all file names. if it has a period in it, it'll chop off to that period. so sheet.crazy.css will become sheet.css ... fix to come
+        foreach($this->_context->styles as $file) {
+            if(preg_match('/\/css\/(.*.less).css"/', $file, $matches)) {
+                $sheet = $webroot . substr(Media::asset($matches[1], 'css'), 0, -4);
                 try {
                     $less = new \li3_assets\lessphp\lessc();
                     // fortunately, the Html::script() helper will automatically append .css, so the output file can just have .css appended too and match.                    
@@ -153,12 +149,12 @@ class Optimize extends \lithium\template\Helper {
         // Check compression type and compress/combine
         if(!empty($library['config']['css']['compression'])) {
             $css = '';
-            if(!file_exists($output_file)) {
+            if(!file_exists($webroot . $output_file)) {
                 // true is just basic compression and combination. Basically remove white spaces and line breaks where possible.
                 if($library['config']['css']['compression'] === true) {
                     foreach($this->_context->styles as $file) {
                         if(preg_match('/\/css\/(.*)"/', $file, $matches)) {
-                            $sheet = $webroot . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . $matches[1];
+                            $sheet = $webroot . Media::asset($matches[1], 'css');
                             // It is possible that a reference to a file that does not exist was passed
                             if(file_exists($sheet)) {
                                 $contents = file_get_contents($sheet);
@@ -174,7 +170,6 @@ class Optimize extends \lithium\template\Helper {
                             $css .= $contents;
                         }
                     }
-                    
                 // 'tidy' setting will run the css files through csstidy which not only removes white spaces and line breaks, but also shortens things like #000000 to #000, etc. where possible.
                 } elseif($library['config']['css']['compression'] == 'tidy') {
                     $tidy = new \li3_assets\csstidy\CssTidy();
@@ -183,7 +178,7 @@ class Optimize extends \lithium\template\Helper {
                     // Loop through all the css files, run them through tidy, and combine into one css file
                     foreach($this->_context->styles as $file) {
                         if(preg_match('/\/css\/(.*)"/', $file, $matches)) {
-                           $sheet = $webroot . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . $matches[1];
+                           $sheet = $webroot . Media::asset($matches[1], 'css');
                             // It is possible that a reference to a file that does not exist was passed
                             if(file_exists($sheet)) {
                                 $tidy->parse(file_get_contents($sheet));
@@ -193,11 +188,11 @@ class Optimize extends \lithium\template\Helper {
                     }
                     
                 }
-                file_put_contents($output_file, $css);
+                file_put_contents($webroot . $output_file, $css);
             }
             // One last safety check to ensure the file is there (reasons why it may not be: primarily, write permissions)
-            if(file_exists($output_file)) {
-                return '<link rel="stylesheet" type="text/css" href="' . Media::asset($library['config']['css']['output_directory'] . DIRECTORY_SEPARATOR . $file_name_hash . '.css', 'css') . '" />';
+            if(file_exists($webroot . $output_file)) {
+                return '<link rel="stylesheet" type="text/css" href="' . Media::asset($output_file, 'css') . '" />';
             } else {
                 return $this->_context->styles();
             }
@@ -218,7 +213,7 @@ class Optimize extends \lithium\template\Helper {
             $library = Libraries::get('li3_assets');
             // Set defaults
             $library += array('config' => array());
-            $library['config'] += array('js' => array(), 'css' => array(), 'image' => array());        
+            $library['config'] += array('image' => array());        
             $library['config']['image'] += array(
                                                 'compression' => true,
                                                 'allowed_formats' => array('jpeg', 'jpg', 'jpe', 'png', 'gif')
