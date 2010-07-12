@@ -138,7 +138,7 @@ class Optimize extends \lithium\template\Helper {
                     $less::ccompile($sheet, $sheet . '.css');
                 } catch (\exception $ex) {
                     if($library['config']['css']['less_debug'] === true) {
-                        $fp = fopen($output . DIRECTORY_SEPARATOR .'less_errors', 'a');
+                        $fp = fopen($output_folder . DIRECTORY_SEPARATOR .'less_errors', 'a');
                         fwrite($fp, '[' . date("D M j G:i:s Y") . '] [file ' . $file . '] ' . $ex->getMessage() . "\n");
                         fclose($fp);
                     }
