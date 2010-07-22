@@ -52,6 +52,10 @@ class Optimize extends \lithium\template\Helper {
                 // JSMin
                 if(($library['config']['js']['compression'] === true) || ($library['config']['js']['compression'] == 'jsmin')) {
                     foreach($this->_context->scripts as $file) {
+                        if(preg_match('/"(http:\/\/.*)"/', $file, $matches)) {
+                            $js .= \li3_assets\jsminphp\JSMin::minify(file_get_contents($matches[1]));
+                            continue;
+                        }
                         if(preg_match('/js\/(.*)"/', $file, $matches)) {
                             $script = $webroot . Media::asset($matches[1], 'js');
                             // It is possible that a reference to a file that does not exist was passed
@@ -63,6 +67,11 @@ class Optimize extends \lithium\template\Helper {
                 // Dean Edwards Packer
                 } elseif($library['config']['js']['compression'] == 'packer') {
                     foreach($this->_context->scripts as $file) {
+                        if(preg_match('/"(http:\/\/.*)"/', $file, $matches)) {
+                            $packer = new \li3_assets\packer\JavaScriptPacker(file_get_contents($matches[1]), $library['config']['js']['packer_encoding'], $script, $library['config']['js']['packer_fast_decode'], $script, $library['config']['js']['packer_special_chars']);
+                            $js .= $packer->pack();
+                            continue;
+                        }
                         if(preg_match('/\/js\/(.*)"/', $file, $matches)) {
                             $script = $webroot . Media::asset($matches[1], 'js');
                             // It is possible that a reference to a file that does not exist was passed                            
@@ -153,23 +162,24 @@ class Optimize extends \lithium\template\Helper {
                 // true is just basic compression and combination. Basically remove white spaces and line breaks where possible.
                 if($library['config']['css']['compression'] === true) {
                     foreach($this->_context->styles as $file) {
+                        if(preg_match('/"(http:\/\/.*)"/', $file, $matches)) {
+                            $css .= file_get_contents($matches[1]);
+                            continue;
+                        }
                         if(preg_match('/\/css\/(.*)"/', $file, $matches)) {
                             $sheet = $webroot . Media::asset($matches[1], 'css');
                             // It is possible that a reference to a file that does not exist was passed
                             if(file_exists($sheet)) {
-                                $contents = file_get_contents($sheet);
-                            } else {
-                                $contents = '';
+                                $css .= file_get_contents($sheet);
                             }
-                            // remove comments
-                            $contents = preg_replace('!/\*[^*]*\*+([^/][^*]*\*+)*/!', '', $contents);
-                            // remove tabs, spaces, newlines, etc.
-                            $contents = str_replace(array("\r\n", "\r", "\n", "\t", '  ', '    ', '    '), '', $contents);
-                            // remove single spaces next to braces (can't remove single spaces everywhere, but we can in a few places)
-                            $contents = str_replace(array('{ ', ' {', '; }'), array('{', '{', ';}'), $contents);
-                            $css .= $contents;
                         }
                     }
+                    // remove comments
+                    $css = preg_replace('!/\*[^*]*\*+([^/][^*]*\*+)*/!', '', $css);
+                    // remove tabs, spaces, newlines, etc.
+                    $css = str_replace(array("\r\n", "\r", "\n", "\t", '  ', '    ', '    '), '', $css);
+                    // remove single spaces next to braces (can't remove single spaces everywhere, but we can in a few places)
+                    $css = str_replace(array('{ ', ' {', '; }'), array('{', '{', ';}'), $css);
                 // 'tidy' setting will run the css files through csstidy which not only removes white spaces and line breaks, but also shortens things like #000000 to #000, etc. where possible.
                 } elseif($library['config']['css']['compression'] == 'tidy') {
                     $tidy = new \li3_assets\csstidy\CssTidy();
@@ -177,6 +187,11 @@ class Optimize extends \lithium\template\Helper {
                     $tidy->load_template($library['config']['css']['tidy_template']);
                     // Loop through all the css files, run them through tidy, and combine into one css file
                     foreach($this->_context->styles as $file) {
+                        if(preg_match('/"(http:\/\/.*)"/', $file, $matches)) {
+                            $tidy->parse(file_get_contents($matches[1]));
+                            $css .= $tidy->print->plain();
+                            continue;
+                        }
                         if(preg_match('/\/css\/(.*)"/', $file, $matches)) {
                            $sheet = $webroot . Media::asset($matches[1], 'css');
                             // It is possible that a reference to a file that does not exist was passed
