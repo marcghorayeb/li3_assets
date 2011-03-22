@@ -5,19 +5,35 @@ use \lithium\net\http\Media;
 
 class Optimize extends \lithium\template\Helper {
     
+    /**
+     * Outputs the compressed and combined JavaScript on the page.
+     * 
+    */
     public function scripts() {
+        // Before any compression and combination is done, order the scripts.
+        // Sort them all by a "weight" key set like: $this->html->script('myscript.js', array('weight' => 1))
+        $ordered_scripts = $this->_context->scripts;
+        usort($ordered_scripts, function($a, $b) {
+            $a = (preg_match('/weight="([0-9].*)"/', $a, $matches)) ? $matches[1]:999;
+            $b = (preg_match('/weight="([0-9].*)"/', $b, $matches)) ? $matches[1]:999;
+            return ($a < $b) ? -1 : 1;
+        });
+        
+        // Set it back to the context
+        $this->_context->scripts = $ordered_scripts;
+        
         $library = Libraries::get('li3_assets');
         // Set Defaults
         $library += array('config' => array());
         $library['config'] += array('js' => array());
         
         $library['config']['js'] += array(
-                                        'compression' => 'jsmin',
-                                        'output_directory' => 'optimized',
-                                        'packer_encoding' => 'Normal',
-                                        'packer_fast_decode' => true,
-                                        'packer_special_chars' => false                                        
-                                    );
+            'compression' => 'jsmin',
+            'output_directory' => 'optimized',
+            'packer_encoding' => 'Normal',
+            'packer_fast_decode' => true,
+            'packer_special_chars' => false                                        
+        );
         
         // Ensure output directory is formatted properly, first remove any beginning slashes
         if($library['config']['js']['output_directory'][0] == DIRECTORY_SEPARATOR) {
@@ -52,7 +68,7 @@ class Optimize extends \lithium\template\Helper {
                 // JSMin
                 if(($library['config']['js']['compression'] === true) || ($library['config']['js']['compression'] == 'jsmin')) {
                     foreach($this->_context->scripts as $file) {
-                        if(preg_match('/"(http:\/\/.*)"/', $file, $matches)) {
+                        if(preg_match('/"(http:\/\/.+?)"/', $file, $matches)) {
                             $js .= \li3_assets\jsminphp\JSMin::minify(file_get_contents($matches[1]));
                             continue;
                         }
@@ -67,7 +83,7 @@ class Optimize extends \lithium\template\Helper {
                 // Dean Edwards Packer
                 } elseif($library['config']['js']['compression'] == 'packer') {
                     foreach($this->_context->scripts as $file) {
-                        if(preg_match('/"(http:\/\/.*)"/', $file, $matches)) {
+                        if(preg_match('/"(http:\/\/.+?)"/', $file, $matches)) {
                             $packer = new \li3_assets\packer\JavaScriptPacker(file_get_contents($matches[1]), $library['config']['js']['packer_encoding'], $script, $library['config']['js']['packer_fast_decode'], $script, $library['config']['js']['packer_special_chars']);
                             $js .= $packer->pack();
                             continue;
@@ -97,18 +113,34 @@ class Optimize extends \lithium\template\Helper {
         
     }
     
+    /**
+     * Outputs the compressed and combined CSS on the page.
+     * 
+    */
     public function styles() {
+        // Before any compression and combination is done, order the styles.
+        // Sort them all by a "weight" key set like: $this->html->style('mystyle.css', array('weight' => 1))
+        $ordered_styles = $this->_context->styles;
+        usort($ordered_styles, function($a, $b) {
+            $a = (preg_match('/weight="([0-9].*)"/', $a, $matches)) ? $matches[1]:999;
+            $b = (preg_match('/weight="([0-9].*)"/', $b, $matches)) ? $matches[1]:999;
+            return ($a < $b) ? -1 : 1;
+        });
+        
+        // Set it back to the context
+        $this->_context->styles = $ordered_styles;
+        
         $library = Libraries::get('li3_assets');
         // Set Defaults
         $library += array('config' => array());
         $library['config'] += array('css' => array());
         
         $library['config']['css'] += array(
-                                       'compression' => true, // possible values: "tidy", true, false
-                                       'tidy_template' => 'highest_compression', // possible values: "high_compression", "highest_compression", "low_compression", or "default"
-                                       'less_debug' => false, // sends lessphp error message to a log file, possible values: true, false
-                                       'output_directory' => 'optimized' // directory is from webroot/css if full path is not defined
-                                    );
+            'compression' => true, // possible values: "tidy", true, false
+            'tidy_template' => 'highest_compression', // possible values: "high_compression", "highest_compression", "low_compression", or "default"
+            'less_debug' => false, // sends lessphp error message to a log file, possible values: true, false
+            'output_directory' => 'optimized' // directory is from webroot/css if full path is not defined
+        );
         
         // Ensure output directory is formatted properly, first remove any beginning slashes
         if($library['config']['css']['output_directory'][0] == DIRECTORY_SEPARATOR) {
@@ -142,7 +174,8 @@ class Optimize extends \lithium\template\Helper {
             if(preg_match('/\/css\/(.*.less).css"/', $file, $matches)) {
                 $sheet = $webroot . substr(Media::asset($matches[1], 'css'), 0, -4);
                 try {
-                    $less = new \li3_assets\lessphp\lessc();
+                    include(LITHIUM_APP_PATH . DIRECTORY_SEPARATOR . 'libraries' . DIRECTORY_SEPARATOR . 'li3_assets' . DIRECTORY_SEPARATOR . 'lessphp' . DIRECTORY_SEPARATOR . 'lessc.php');
+                    $less = new \lessc();
                     // fortunately, the Html::script() helper will automatically append .css, so the output file can just have .css appended too and match.                    
                     $less::ccompile($sheet, $sheet . '.css');
                 } catch (\exception $ex) {
@@ -162,7 +195,7 @@ class Optimize extends \lithium\template\Helper {
                 // true is just basic compression and combination. Basically remove white spaces and line breaks where possible.
                 if($library['config']['css']['compression'] === true) {
                     foreach($this->_context->styles as $file) {
-                        if(preg_match('/"(http:\/\/.*)"/', $file, $matches)) {
+                        if(preg_match('/"(http:\/\/.+?)"/', $file, $matches)) {
                             $css .= file_get_contents($matches[1]);
                             continue;
                         }
@@ -182,12 +215,13 @@ class Optimize extends \lithium\template\Helper {
                     $css = str_replace(array('{ ', ' {', '; }'), array('{', '{', ';}'), $css);
                 // 'tidy' setting will run the css files through csstidy which not only removes white spaces and line breaks, but also shortens things like #000000 to #000, etc. where possible.
                 } elseif($library['config']['css']['compression'] == 'tidy') {
-                    $tidy = new \li3_assets\csstidy\CssTidy();
+                    include(LITHIUM_APP_PATH . DIRECTORY_SEPARATOR . 'libraries' . DIRECTORY_SEPARATOR . 'li3_assets' . DIRECTORY_SEPARATOR . 'csstidy' . DIRECTORY_SEPARATOR . 'CssTidy.php');
+                    $tidy = new \CssTidy();
                     $tidy->set_cfg('remove_last_;',TRUE);
                     $tidy->load_template($library['config']['css']['tidy_template']);
                     // Loop through all the css files, run them through tidy, and combine into one css file
                     foreach($this->_context->styles as $file) {
-                        if(preg_match('/"(http:\/\/.*)"/', $file, $matches)) {
+                        if(preg_match('/"(http:\/\/.+?)"/', $file, $matches)) {
                             $tidy->parse(file_get_contents($matches[1]));
                             $css .= $tidy->print->plain();
                             continue;
@@ -258,8 +292,6 @@ class Optimize extends \lithium\template\Helper {
             return '<img src="data:image/'.$format.';base64,'.$data.'" ' . $html_options . '/>';            
         });
     }
-    
-    // TODO: make $this->optimize->script(...) so that scripts can be called inline and minified...
     
 }
 ?>

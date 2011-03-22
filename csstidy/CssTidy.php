@@ -1,5 +1,4 @@
 <?php
-namespace li3_assets\csstidy;
 /**
  * CSSTidy - CSS Parser and Optimiser
  *
