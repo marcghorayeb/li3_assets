@@ -1,5 +1,7 @@
 <?php
+
 namespace li3_assets\packer;
+
 /* 9 April 2008. version 1.1
  * 
  * This is the php version of the Dean Edwards JavaScript's Packer,
