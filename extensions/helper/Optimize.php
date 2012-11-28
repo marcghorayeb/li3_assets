@@ -2,13 +2,14 @@
 
 namespace li3_assets\extensions\helper;
 
+use lessc;
+use CssTidy;
+
 use lithium\core\Environment;
 use lithium\core\Libraries;
 use lithium\net\http\Media;
 use lithium\storage\Cache;
 
-use lessc;
-use CssTidy;
 use li3_assets\jsminphp\JSMin;
 use li3_assets\packer\JavaScriptPacker;
 
