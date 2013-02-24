@@ -91,7 +91,12 @@ class CleanAssets extends \lithium\console\Command {
 	 *
 	 */
 	protected function _isLessFile($file) {
-		return strpos($file, '.less') !== false && strpos($file, '.less.cache') === false && strpos($file, 'less.css') === false && strpos($file, '.dist') === false;
+		$isLessFile = strpos($file, '.less') !== false;
+		$isLessFile = $isLessFile && strpos($file, '.less.cache') === false;
+		$isLessFile = $isLessFile && strpos($file, 'less.css') === false;
+		$isLessFile = $isLessFile && strpos($file, '.dist') === false;
+
+		return $isLessFile;
 	}
 
 	/**
