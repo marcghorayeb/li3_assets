@@ -127,7 +127,7 @@ class Optimize extends \lithium\template\helper\Html {
 			if (!file_exists($outputFolder)) {
 				// If it doesn't exist, try to create it
 				if (!mkdir($outputFolder, 0777, true)) {
-					die('Failed to create folders...');
+					die("li3_assets: Failed to create ouput folder for JS: {$outputFolder}");
 				}
 
 				// If it still doesn't exist, return the scripts
@@ -296,7 +296,7 @@ class Optimize extends \lithium\template\helper\Html {
 			if(!file_exists($outputFolder)) {
 				// If it doesn't exist, try to create it
 				if (!mkdir($outputFolder, 0777, true)) {
-					die('li3_assets: Failed to create folders.');
+					die("li3_assets: Failed to create ouput folder for CSS: {$outputFolder}");
 				}
 				// If it still doesn't exist, return the scripts
 				if(!file_exists($outputFolder)) {
