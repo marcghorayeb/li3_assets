@@ -414,12 +414,17 @@ class Optimize extends \lithium\template\helper\Html {
 	 *
 	 */
 	protected static function _cleanOutputDirectory(&$directory) {
+		if (empty($directory)) {
+			return true;
+		}
+
 		// Ensure output directory is formatted properly, first remove any beginning slashes
-		if($directory[0] == DIRECTORY_SEPARATOR) {
+		if ($directory[0] == DIRECTORY_SEPARATOR) {
 			$directory = substr($directory, 1);
 		}
+
 		// ...then any trailing slashes
-		if(substr($directory, -1, 1) == DIRECTORY_SEPARATOR) {
+		if (substr($directory, -1, 1) == DIRECTORY_SEPARATOR) {
 			$directory = substr($directory, 0, -1);
 		}
 	}
